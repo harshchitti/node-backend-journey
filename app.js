@@ -39,6 +39,39 @@ app.post('/users', async (req, res) => {
     res.status(500).send('Something went wrong');
   }
 });
+app.put('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body; 
+    const result = await pool.query(
+      'update users set name = $1, email=$2 where id = $3 returning *',
+      [name ,email,id]
+    );
+
+  if (result.rows.length === 0) {
+  return res.status(404).send('User not found');
+    }
+   res.send(result.rows[0]);     
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Something went wrong');
+  }
+});
+app.delete('/users/:id', async (req, res) => {
+  try{
+    const{id}=req.params;
+    const result = await pool.query(
+      'delete from users where id=$1 returning *',
+      [id]
+    );
+    if(result.rows.length==0)return res.status(404).send('user not found');
+    res.send(result.rows[0]);
+  }
+  catch(err){
+    console.log(err);
+    res.status(500).send('something went wrong');
+  }
+});
 app.listen(port, () => {
   console.log(`Serverrr is running on port ${port}`);
 });
