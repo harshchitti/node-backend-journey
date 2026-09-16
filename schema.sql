@@ -14,7 +14,8 @@ CREATE TABLE users (
                    CHECK (role IN ('student', 'admin')), -- restricts role to exactly these two values; defaults every new signup to 'student'
     is_verified    BOOLEAN NOT NULL DEFAULT false,     -- true once the user confirms their email
     promoted_by    INT REFERENCES users(id),           -- id of the admin who promoted this user to admin (NULL if never promoted) — self-referencing foreign key
-    promoted_at    TIMESTAMPTZ                         -- when the promotion happened (NULL if never promoted)
+    promoted_at    TIMESTAMPTZ,                        -- when the promotion happened (NULL if never promoted)
+    created_at     TIMESTAMPTZ,                        -- when did user signup
 );
 
 -- ROOMS
@@ -24,6 +25,7 @@ CREATE TABLE rooms (
     name           VARCHAR(100) UNIQUE NOT NULL,       -- room name, must be unique, required
     status         VARCHAR(20) NOT NULL DEFAULT 'active'
                    CHECK (status IN ('active', 'inactive')) -- restricts status to exactly these two values; defaults new rooms to 'active'
+    created_at     TIMESTAMPTZ NOT NULL                     --when is this room created
 );
 
 -- BOOKINGS
