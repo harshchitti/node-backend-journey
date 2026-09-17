@@ -16,6 +16,8 @@ CREATE TABLE users (
     promoted_by    INT REFERENCES users(id),           -- id of the admin who promoted this user to admin (NULL if never promoted) — self-referencing foreign key
     promoted_at    TIMESTAMPTZ,                        -- when the promotion happened (NULL if never promoted)
     created_at     TIMESTAMPTZ,                        -- when did user signup
+    otp_code       VARCHAR(6),
+    otp_expires_at  TIMESTAMPTZ
 );
 
 -- ROOMS
