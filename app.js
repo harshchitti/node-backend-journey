@@ -30,29 +30,6 @@ function verifyToken(req, res, next) {
     return res.status(401).send("invalid or expired token");
   }
 }
-//---------
-app.use((req, res, next) => {
-  console.log(req.method, req.url);
-  next();
-});
-app.post('/echo', (req, res) => {
-  res.send(req.body);
-});
-app.get('/', (req, res) => {
-  res.send('home page');
-});
-app.get('/health', (req, res) => {  
-  res.send('Health check');
-});
-app.get('/users', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM users');
-    res.send(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Something went wrong');
-  }
-});
 // --------------------------------------------------------------------
 //writing signup api endpoint
 app.post('/signup', async (req, res) => {
@@ -70,7 +47,15 @@ app.post('/signup', async (req, res) => {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Verify your account',
-    text: `Your OTP for room booking is ${otp}. It expires in 10 minutes.`,
+    text: `Subject: Your verification code
+
+           Hi,
+
+          Your one-time verification code is: ${otp}
+
+          This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email — no action is needed.
+
+          Never share this code with anyone, including someone claiming to be from our team.`,
   });
 
      res.status(201).send("successfully signed up");
@@ -144,7 +129,15 @@ app.post('/resend-otp', async(req,res)=>{
      from: process.env.EMAIL_USER,
      to: email,
      subject: 'Verify your account',
-     text: `Your OTP for room booking is ${otp}. It expires in 10 minutes.`,
+     text: `Subject: Your verification code
+
+           Hi,
+
+          Your one-time verification code is: ${otp}
+
+          This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email — no action is needed.
+
+          Never share this code with anyone, including someone claiming to be from our team.`,
     });
     res.status(201).send("otp is resent");
     
@@ -235,6 +228,7 @@ try{
   }
 });
 //----------------------------------------------------------
+//change role endpoint
 app.post('/change-role',verifyToken,async (req,res)=>{
   try{
       const {email,newRole}=req.body;
@@ -286,54 +280,7 @@ app.post('/change-role',verifyToken,async (req,res)=>{
         res.status(500).send("something went wrong");
     }
 });
-
-
-app.post('/users', async (req, res) => {
-  try {
-    const { name, email } = req.body;
-    const result = await pool.query(
-      'INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *',
-      [name, email]
-    );
-    res.status(201).send(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Something went wrong');
-  }
-});
-app.put('/users/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, email } = req.body; 
-    const result = await pool.query(
-      'update users set name = $1, email=$2 where id = $3 returning *',
-      [name ,email,id]
-    );
-
-  if (result.rows.length === 0) {
-  return res.status(404).send('User not found');
-    }
-   res.send(result.rows[0]);     
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Something went wrong');
-  }
-});
-app.delete('/users/:id', async (req, res) => {
-  try{
-    const{id}=req.params;
-    const result = await pool.query(
-      'delete from users where id=$1 returning *',
-      [id]
-    );
-    if(result.rows.length==0)return res.status(404).send('user not found');
-    res.send(result.rows[0]);
-  }
-  catch(err){
-    console.log(err);
-    res.status(500).send('something went wrong');
-  }
-});
+//----------------------------------------------------------------------
 app.listen(port, () => {
   console.log(`Serverrr is running on port ${port}`);
 });
