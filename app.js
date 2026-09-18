@@ -12,6 +12,25 @@ const port = process.env.PORT || 3000;
    const otp = Math.floor(100000 + Math.random() * 900000).toString();
    return otp;
 }
+//jwt verification
+function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    return res.status(401).send("no token provided");
+  }
+
+  const token = authHeader.split(' ')[1]; 
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next(); 
+  } catch (err) {
+    return res.status(401).send("invalid or expired token");
+  }
+}
+//---------
 app.use((req, res, next) => {
   console.log(req.method, req.url);
   next();
@@ -139,10 +158,10 @@ catch(err){
 //loginpage endpoint
 app.post('/login',async(req,res)=>{
    try{
-     const{emailId,password_entered}=req.body;
+     const{email,password_entered}=req.body;
      const result = await pool.query(
       'select id,is_verified,password_hash,role from users where email = $1',
-      [emailId]
+      [email]
      );
      if(result.rows.length===0){
       console.log("invalid email");
@@ -159,7 +178,7 @@ app.post('/login',async(req,res)=>{
          console.log("invalid  password");
       return res.status(401).send("invalid emaild or password");
      }
-    
+    //jwt token
      const token = jwt.sign(
         { userId: result.rows[0].id, role:result.rows[0].role},   
         process.env.JWT_SECRET,                  
@@ -177,6 +196,97 @@ app.post('/login',async(req,res)=>{
    }
 });
 //------------------------------------------------------------------------
+//firstadmin call endpoint
+app.post('/firstadmin',verifyToken,async(req,res)=>{
+try{
+  const {email}=req.body;
+  const result = await pool.query(
+      'select id,is_verified,password_hash,role from users where email = $1',
+      [email]
+     );
+      if(result.rows.length===0){
+      console.log("invalid email");
+      return res.status(401).send("invalid emaild or password");
+     }
+     console.log("checking verification...");
+      if(result.rows[0].is_verified===false){
+     // console.log("not verifed please verify your email first");
+      return res.status(401).send("not verified");
+     }
+    const info = await pool.query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+    console.log(info.rows[0].count); 
+    const adminCount = parseInt(info.rows[0].count, 10);
+    if(adminCount>0){
+      console.log("you are not the first admin");
+     return res.status(401).send("admin present already");
+   }
+   await pool.query(
+    'update users set role = $1 where email = $2',
+     ['admin', email]
+   );
+   console.log("fist admin made")
+   res.status(201).json({
+    "message": "admin made succesfully",
+   })
+  }
+  catch(err){
+    console.log(err);
+    res.status(500).send("something went wrong");
+  }
+});
+//----------------------------------------------------------
+app.post('/change-role',verifyToken,async (req,res)=>{
+  try{
+      const {email,newRole}=req.body;
+      if (newRole !== 'admin' && newRole !== 'student') {
+      return res.status(400).send("invalid role specified");
+      }
+      console.log("proper role prompt...");
+      const info = await pool.query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+      const adminCount = parseInt(info.rows[0].count, 10);
+      if(req.user.role==='student'){
+       return res.status(403).send("not authorized to change the role")
+     }
+      const result = await pool.query(
+      'select id,is_verified,password_hash,role from users where email = $1',
+      [email]
+     );
+      if(result.rows.length===0){
+      console.log("invalid email");
+      return res.status(401).send("invalid emaild or password");
+     }
+     console.log("checking verification...");
+      if(result.rows[0].is_verified===false){
+     // console.log("not verifed please verify your email first");
+      return res.status(401).send("not verified");
+     }
+     if(result.rows[0].role===newRole){
+      console.log("same role alredy...");
+      return res.status(201).send("updated");
+     }
+      if (adminCount === 1 && newRole === 'student' && result.rows[0].role === 'admin') {
+      return res.status(403).send("you are the last admin");
+    }
+   if (newRole === 'admin') {
+     await pool.query(
+    'update users set role = $1, promoted_by = $2, promoted_at = $3 where email = $4',
+    ['admin', req.user.userId, new Date(), email]
+     );
+    } else {
+        await pool.query(
+      'update users set role = $1 where email = $2',
+      ['student', email]
+     );
+}
+     res.status(201).send("role updated");
+     
+  }
+  catch(err){
+        console.log(err);
+        res.status(500).send("something went wrong");
+    }
+});
+
 
 app.post('/users', async (req, res) => {
   try {
