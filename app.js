@@ -3,6 +3,7 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import pool from './db.js';
 import transporter from './mailer.js';
+import jwt from 'jsonwebtoken';
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || 3000;
@@ -135,6 +136,48 @@ catch(err){
 }
 });
 //----------------------------------------------------------------
+//loginpage endpoint
+app.post('/login',async(req,res)=>{
+   try{
+     const{emailId,password_entered}=req.body;
+     const result = await pool.query(
+      'select id,is_verified,password_hash,role from users where email = $1',
+      [emailId]
+     );
+     if(result.rows.length===0){
+      console.log("invalid email");
+      return res.status(401).send("invalid emaild or password");
+     }
+     console.log("checking verification...");
+      if(result.rows[0].is_verified===false){
+     // console.log("not verifed please verify your email first");
+      return res.status(401).send("not verified");
+     }
+    // console.log("checking password...");
+     const isMatch = await bcrypt.compare(password_entered, result.rows[0].password_hash);
+     if(isMatch===false){
+         console.log("invalid  password");
+      return res.status(401).send("invalid emaild or password");
+     }
+    
+     const token = jwt.sign(
+        { userId: result.rows[0].id, role:result.rows[0].role},   
+        process.env.JWT_SECRET,                  
+        { expiresIn: '1h' }                      
+      );
+       console.log("logged in successfully..");
+      res.status(200).json({
+       message: "successfully logged in",
+       token: token
+      });
+     
+   }catch(err){
+      console.log(err);
+      res.status(500).send("something went wrong");
+   }
+});
+//------------------------------------------------------------------------
+
 app.post('/users', async (req, res) => {
   try {
     const { name, email } = req.body;
