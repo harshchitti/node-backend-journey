@@ -33,5 +33,22 @@ router.get('/',verifyToken,async (req,res)=>{
           return res.status(500).send("something went wrong");
       }
 });
+router.patch('/:id',verifyToken,requireAdmin, async(req,res)=>{
+    try{
+      const {status}=req.body;
+      if(status!=="active"&&status!=="inactive")return res.status(400).send("Not a valid input");
+      const { id } = req.params;
+
+    const result=await pool.query(
+        'update rooms set status =$1 where id = $2 returning*',
+        [status,id]
+    );
+    if(result.rows.length===0)return res.status(404).send("no room found");
+    return res.status(200).json(result.rows.[0]);
+   }catch(err){
+        console.log(err);
+        return res.status(500).send("something went wrong");
+   }
+});
 
 export default router;
