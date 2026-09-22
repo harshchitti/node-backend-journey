@@ -2,11 +2,11 @@ import express from 'express';
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 function verifyToken(req, res, next) {
-    console.log("verifying the token token");
+    console.log("verifying the token ");
   const authHeader = req.headers['authorization'];
 
   if (!authHeader) {
-    return res.status(401).send("no token provided");
+    return res.status(401).json({error:"no token provided"});
   }
 
   const token = authHeader.split(' ')[1]; 
@@ -16,7 +16,7 @@ function verifyToken(req, res, next) {
     req.user = decoded;
     next(); 
   } catch (err) {
-    return res.status(401).send("invalid or expired token");
+    return res.status(401).json({error:"invalid or expired token"});
   }
 }
 export default verifyToken;
