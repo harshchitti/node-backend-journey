@@ -15,6 +15,15 @@ try {
   const user_id = req.user.userId;
   await client.query('BEGIN');
   const roomLock = await client.query('SELECT * FROM rooms WHERE id = $1 FOR UPDATE', [room_id]);
+  const room = roomLock.rows[0];
+  if (!room) {
+    await client.query('ROLLBACK');
+    return res.status(404).json({ error: 'room not found' });
+  }
+  if (room.status !== 'active') {
+    await client.query('ROLLBACK');
+    return res.status(409).json({ error: 'room is not active' });
+  }
   const overlap = await client.query(
     'SELECT * FROM bookings WHERE room_id = $1 AND NOT (end_time <= $2 OR start_time >= $3)',
     [room_id, start_time, end_time]
