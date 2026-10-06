@@ -2,12 +2,17 @@ import express from 'express';
 import pool from '../db.js';
 import jwt from 'jsonwebtoken';
 import  verifyToken  from '../middleware/verifyToken.js';
+import bookingValidators from '../middleware/bookingValidators.js';
 import {body,validationResult} from 'express-validator';
 const router = express.Router();
-router.post('/',async (req,res,next)=>{
+router.post('/',verifyToken,bookingValidators,
+     
+    async (req,res,next)=>{
+
 const client = await pool.connect();
 try {
-  const { room_id, user_id, start_time, end_time } = req.body;
+  const { room_id,start_time,end_time } = req.body;
+  const user_id = req.user.userId;
   await client.query('BEGIN');
   const roomLock = await client.query('SELECT * FROM rooms WHERE id = $1 FOR UPDATE', [room_id]);
   const overlap = await client.query(
@@ -20,7 +25,7 @@ try {
   }
   const insertResult = await client.query(
     'INSERT INTO bookings (room_id,user_id,start_time,end_time,status,created_by_role) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-    [room_id,user_id,start_time,end_time,"confirmed","student"]
+    [room_id,user_id,start_time,end_time,"confirmed",req.user.role]
   );
   await client.query('COMMIT');
   return res.status(201).json({ message: insertResult.rows[0] });

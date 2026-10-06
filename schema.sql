@@ -40,7 +40,7 @@ CREATE TABLE bookings (
     end_time          TIMESTAMPTZ NOT NULL,             -- when the booking ends
     CHECK (end_time > start_time),                    -- prevents nonsensical bookings where the end is before (or equal to) the start
     status            VARCHAR(20) NOT NULL DEFAULT 'pending'
-                      CHECK (status IN ('pending', 'confirmed', 'cancelled')), -- restricts status to exactly these three values
+                      CHECK (status IN ('confirmed', 'cancelled')), -- restricts status to exactly these two values
     created_by_role   VARCHAR(20) NOT NULL DEFAULT 'student'
                       CHECK (created_by_role IN ('student', 'admin')), -- records whether a student or an admin created this booking
     performed_by      INT REFERENCES users(id)          -- id of the admin who acted on this booking on someone else's behalf (e.g. cancelled it); NULL if no admin action was taken
