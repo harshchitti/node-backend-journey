@@ -2,7 +2,7 @@ import 'dotenv/config';
 import pool from './db.js';
 
 const URL = 'http://localhost:3000/booking';
-const TOKENS = { A: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjUsInJvbGUiOiJzdHVkZW50IiwiaWF0IjoxNzkzNzY2NDY0LCJleHAiOjE3OTM3NzAwNjR9.Svg8fnj7LXcGfEcPHEQGwQg2B4ZAl7LehTM0V8lPy_g', B: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjYsInJvbGUiOiJzdHVkZW50IiwiaWF0IjoxNzkzNzY2NTQ2LCJleHAiOjE3OTM3NzAxNDZ9.UFCMF3T_dDDBpHv2e5IoUzjdNybVkNDgTz6WmzxL0f8', C: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjgsInJvbGUiOiJzdHVkZW50IiwiaWF0IjoxNzkzNzY2NTEwLCJleHAiOjE3OTM3NzAxMTB9.XzJok07QDKSLNZ3YpzbAFEwII3AzaATuW7xkjbKiogw' };
+const TOKENS = { A: process.env.TOKEN_A, B: process.env.TOKEN_B, C: process.env.TOKEN_C };
 
 // tomorrow's date in IST: always in the future, inside the 7-day horizon
 const day = new Date(Date.now() + (5.5 + 24) * 3600 * 1000).toISOString().slice(0, 10);
@@ -24,8 +24,26 @@ async function book(user, room_id, [s, e]) {
   return res.status;
 }
 
+async function bookGetId(user, room_id, [s, e]) {
+  const res = await post(user, { room_id, ...slot(s, e) });
+  const data = await res.json();
+  return { status: res.status, id: data.message?.id };
+}
+
+async function cancel(user, id) {
+  const res = await fetch(`${URL}/${id}/cancel`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${TOKENS[user]}` },
+  });
+  return res.status;
+}
+
 async function preflight() {
   for (const user of Object.keys(TOKENS)) {
+    if (!TOKENS[user]) {
+      console.log(`TOKEN_${user} is missing from .env`);
+      return false;
+    }
     let res;
     try {
       res = await post(user, { room_id: 0, ...slot('10:00', '11:00') });
@@ -86,6 +104,41 @@ try {
   await scenario('6. same user, 5 identical requests',
     () => [1, 2, 3, 4, 5].map(() => book('A', R1, ['10:00', '11:00'])),
     { 201: 1, 409: 4 });
+
+  {
+    await pool.query('DELETE FROM bookings');
+    const { status, id } = await bookGetId('A', R1, ['10:00', '11:00']);
+    if (status !== 201) {
+      console.log('FAIL - 7. setup booking failed with', status);
+    } else {
+      const statuses = await Promise.all([cancel('A', id), cancel('A', id)]);
+      const { rows: after } = await pool.query('SELECT status FROM bookings WHERE id = $1', [id]);
+      const pass = statuses.every(s => s === 200) && after[0].status === 'cancelled';
+      console.log(pass ? 'PASS' : 'FAIL', '- 7. two cancels of the same booking | got', statuses.join(','), '| row is', after[0].status);
+    }
+  }
+    {
+    let rebooked = 0, blocked = 0, bad = 0;
+    for (let i = 0; i < 10; i++) {
+      await pool.query('DELETE FROM bookings');
+      const { status, id } = await bookGetId('A', R1, ['10:00', '11:00']);
+      if (status !== 201) { bad++; continue; }
+      const [c, b] = await Promise.all([
+        cancel('A', id),
+        book('B', R1, ['10:00', '11:00']),
+      ]);
+      const { rows: conf } = await pool.query(
+        "SELECT count(*)::int AS n FROM bookings WHERE room_id = $1 AND status = 'confirmed'",
+        [R1]
+      );
+      const ok = c === 200 && (b === 201 || b === 409) && conf[0].n <= 1;
+      if (!ok) bad++;
+      else if (b === 201) rebooked++;
+      else blocked++;
+    }
+    console.log(bad === 0 ? 'PASS' : 'FAIL',
+      `- 8. cancel vs rebook x10 | rebooked ${rebooked}, blocked ${blocked}, bad ${bad}`);
+  }
 } finally {
   await pool.query('DELETE FROM bookings');
   await pool.end();
