@@ -13,8 +13,10 @@ app.use((req, res, next) => {
 app.use('/',authRouter);
 app.use('/rooms',roomsRouter);
 app.use('/booking',bookingsRouter);
-app.use((err,req,res,next)=>{
-  res.status(500).json({ error: "something went wrong" });
+app.use((err, req, res, next) => {
+  console.log(err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: status === 500 ? "something went wrong" : "invalid request" });
 });
 app.listen(port, () => {
   console.log(`Serverrr is running on port ${port}`);
