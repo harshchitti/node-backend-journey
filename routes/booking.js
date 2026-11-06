@@ -9,9 +9,8 @@ const router = express.Router();
 router.post('/',verifyToken,bookingValidators,
      
     async (req,res,next)=>{
-
+const client = await pool.connect();
 try {
-  const client = await pool.connect();
   const { room_id,start_time,end_time } = req.body;
   const user_id = req.user.userId;
   await client.query('BEGIN');//locking for no user can book two different rooms at same time
@@ -65,8 +64,8 @@ router.patch('/:id/cancel', verifyToken,
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array()[0].msg });
     }
+     const client = await pool.connect();
     try {
-      const client = await pool.connect();
       await client.query('BEGIN');
       const result = await client.query(
         'SELECT * FROM bookings WHERE id = $1 FOR UPDATE',
@@ -87,8 +86,8 @@ router.patch('/:id/cancel', verifyToken,
       return res.status(409).json({ error: 'booking has already ended' });
       }
       const updated = await client.query(
-        "UPDATE bookings SET status = 'cancelled' WHERE id = $1 RETURNING *",
-        [booking.id]
+        "UPDATE bookings SET status = 'cancelled',performed_by=$1 WHERE id = $2 RETURNING *",
+        [req.user.userId,booking.id]
       );
       await client.query('COMMIT');
       return res.status(200).json({ message: 'booking cancelled', booking: updated.rows[0] });     
@@ -100,5 +99,5 @@ router.patch('/:id/cancel', verifyToken,
       client.release();
     }
   }
-);
+);  
 export default router;
