@@ -5,12 +5,13 @@ import  verifyToken  from '../middleware/verifyToken.js';
 import bookingValidators from '../middleware/bookingValidators.js';
 import {body,param,validationResult} from 'express-validator';
 const router = express.Router();
+//------------booking--------------------------------
 router.post('/',verifyToken,bookingValidators,
      
     async (req,res,next)=>{
 
-const client = await pool.connect();
 try {
+  const client = await pool.connect();
   const { room_id,start_time,end_time } = req.body;
   const user_id = req.user.userId;
   await client.query('BEGIN');//locking for no user can book two different rooms at same time
@@ -64,9 +65,8 @@ router.patch('/:id/cancel', verifyToken,
     if (!errors.isEmpty()) {
       return res.status(400).json({ error: errors.array()[0].msg });
     }
-
-    const client = await pool.connect();
     try {
+      const client = await pool.connect();
       await client.query('BEGIN');
       const result = await client.query(
         'SELECT * FROM bookings WHERE id = $1 FOR UPDATE',
