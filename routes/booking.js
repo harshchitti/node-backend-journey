@@ -13,15 +13,17 @@ const client = await pool.connect();
 try {
   const { room_id,start_time,end_time } = req.body;
   const user_id = req.user.userId;
-  await client.query('BEGIN');//locking for no user can book two different rooms at same time
-    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [user_id]);
-  const active = await client.query(
-    "SELECT 1 FROM bookings WHERE user_id = $1 AND status = 'confirmed' AND end_time > NOW() LIMIT 1",
+  await client.query('BEGIN');
+  if(req.user.role!=="admin"){ 
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [user_id]);//locking for no student can book two different rooms at same time
+    const active = await client.query(
+    "SELECT 1 FROM bookings WHERE user_id = $1 AND status = 'confirmed' AND end_time > NOW() LIMIT 1", 
     [user_id]
-  );
-  if (active.rows.length !== 0) {
+    );
+    if (active.rows.length !== 0) {//no student can have more than one active booking.
     await client.query('ROLLBACK');
     return res.status(409).json({ error: 'you already have an active booking' });
+   }
   }
   const roomLock = await client.query('SELECT * FROM rooms WHERE id = $1 FOR UPDATE', [room_id]);
   const room = roomLock.rows[0];
