@@ -1,14 +1,16 @@
 {
-  "name": "node-js-projects",
+  "name": "room-booking-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Concurrency-safe room booking REST API with Node.js, Express and PostgreSQL",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "race": "node race-test.js",
     "migrate": "node-pg-migrate"
   },
   "keywords": [],
-  "author": "",
+  "author": "Chitti Harsh Vardhan",
   "license": "ISC",
   "type": "module",
   "dependencies": {
