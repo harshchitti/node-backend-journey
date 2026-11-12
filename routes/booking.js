@@ -75,7 +75,7 @@ router.patch('/:id/cancel', verifyToken,
       );
       const booking = result.rows[0];
 
-      if (!booking || booking.user_id !== req.user.userId) {
+      if (!booking||(booking.user_id !== req.user.userId&&req.user.role!=="admin") ) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'booking not found' });
       }
